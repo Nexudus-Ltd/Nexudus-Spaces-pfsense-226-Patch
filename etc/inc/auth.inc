@@ -48,10 +48,13 @@
 if(!$do_not_include_config_gui_inc)
 	require_once("config.gui.inc");
 
+require_once('Requests/library/Requests.php');
+require_once('JSON.php');
+
 // Will be changed to false if security checks fail
 $security_passed = true;
 
-/* If this function doesn't exist, we're being called from Captive Portal or 
+/* If this function doesn't exist, we're being called from Captive Portal or
    another internal subsystem which does not include authgui.inc */
 if (function_exists("display_error_form") && !isset($config['system']['webgui']['nodnsrebindcheck'])) {
 	/* DNS ReBinding attack prevention.  https://redmine.pfsense.org/issues/708 */
@@ -387,7 +390,7 @@ function local_user_set(& $user) {
 
 	conf_mount_rw();
 
-	$home_base = "/home/";	
+	$home_base = "/home/";
 	$user_uid = $user['uid'];
 	$user_name = $user['name'];
 	$user_home = "{$home_base}{$user_name}";
@@ -395,7 +398,7 @@ function local_user_set(& $user) {
 	$user_group = "nobody";
 
 	// Ensure $home_base exists and is writable
-	if (!is_dir($home_base)) 
+	if (!is_dir($home_base))
 		mkdir($home_base, 0755);
 
 	$lock_account = false;
@@ -446,7 +449,7 @@ function local_user_set(& $user) {
 		$user_op = "usermod";
 	}
 
-	$comment = str_replace(array(":", "!", "@"), " ", $user['descr']); 
+	$comment = str_replace(array(":", "!", "@"), " ", $user['descr']);
 	/* add or mod pw db */
 	$cmd = "/usr/sbin/pw {$user_op} -q -u {$user_uid} -n {$user_name}".
 			" -g {$user_group} -s {$user_shell} -d {$user_home}".
@@ -479,7 +482,7 @@ function local_user_set(& $user) {
 
 	$un = $lock_account ? "" : "un";
 	exec("/usr/sbin/pw {$un}lock {$user_name} -q");
-	
+
 	conf_mount_ro();
 }
 
@@ -551,7 +554,7 @@ function local_user_get_groups($user, $all = false) {
 	sort($groups);
 
 	return $groups;
-	
+
 }
 
 function local_user_set_groups($user, $new_groups = NULL ) {
@@ -768,7 +771,7 @@ function ldap_test_bind($authcfg) {
 	ldap_set_option($ldap, LDAP_OPT_REFERRALS, 0);
 	ldap_set_option($ldap, LDAP_OPT_DEREF, LDAP_DEREF_SEARCHING);
 	ldap_set_option($ldap, LDAP_OPT_PROTOCOL_VERSION, (int)$ldapver);
- 
+
 	$ldapbindun = isset($authcfg['ldap_utf8']) ? utf8_encode($ldapbindun) : $ldapbindun;
 	$ldapbindpw = isset($authcfg['ldap_utf8']) ? utf8_encode($ldapbindpw) : $ldapbindpw;
 	if ($ldapanon == true) {
@@ -886,23 +889,23 @@ function ldap_get_user_ous($show_complete_ou=true, $authcfg) {
 
 function ldap_get_groups($username, $authcfg) {
 	global $debug, $config;
-	
+
 	if(!function_exists("ldap_connect"))
 		return;
-	
-	if(!$username) 
+
+	if(!$username)
 		return false;
 
 	if(!isset($authcfg['ldap_nostrip_at']) && stristr($username, "@")) {
 		$username_split = explode("@", $username);
-		$username = $username_split[0];		
+		$username = $username_split[0];
 	}
 
 	if(stristr($username, "\\")) {
 		$username_split = explode("\\", $username);
-		$username = $username_split[0];        
-	}    
-	
+		$username = $username_split[0];
+	}
+
 	//log_error("Getting LDAP groups for {$username}.");
         if ($authcfg) {
                 if (strstr($authcfg['ldap_urltype'], "Standard"))
@@ -959,7 +962,7 @@ function ldap_get_groups($username, $authcfg) {
 		log_error(sprintf(gettext("ERROR! ldap_get_groups() Could not connect to server %s."), $ldapname));
                 return memberof;
         }
-    
+
 	ldap_set_option($ldap, LDAP_OPT_REFERRALS, 0);
 	ldap_set_option($ldap, LDAP_OPT_DEREF, LDAP_DEREF_SEARCHING);
 	ldap_set_option($ldap, LDAP_OPT_PROTOCOL_VERSION, (int)$ldapver);
@@ -1005,14 +1008,14 @@ function ldap_get_groups($username, $authcfg) {
 			}
 		}
 	}
-	
+
 	/* Time to close LDAP connection */
 	@ldap_unbind($ldap);
-	
+
 	$groups = print_r($memberof,true);
-	
+
 	//log_error("Returning groups ".$groups." for user $username");
-	
+
 	return $memberof;
 }
 
@@ -1022,8 +1025,8 @@ function ldap_format_host($host) {
 
 function ldap_backed($username, $passwd, $authcfg) {
 	global $debug, $config;
-	
-	if(!$username) 
+
+	if(!$username)
 		return;
 
 	if(!function_exists("ldap_connect"))
@@ -1031,11 +1034,11 @@ function ldap_backed($username, $passwd, $authcfg) {
 
 	if(!isset($authcfg['ldap_nostrip_at']) && stristr($username, "@")) {
 		$username_split = explode("@", $username);
-		$username = $username_split[0];        
+		$username = $username_split[0];
 	}
 	if(stristr($username, "\\")) {
 		$username_split = explode("\\", $username);
-		$username = $username_split[0];        
+		$username = $username_split[0];
 	}
 
 	if ($authcfg) {
@@ -1065,9 +1068,9 @@ function ldap_backed($username, $passwd, $authcfg) {
                 }
                 else
                 {
-                        $ldapfilter = 
+                        $ldapfilter =
 "(&({$ldapnameattribute}={$username})({$ldapextendedquery}))";
-                } 
+                }
                 $ldaptype           = "";
                 $ldapver            = $authcfg['ldap_protver'];
 		$ldapname	    = $authcfg['name'];
@@ -1076,7 +1079,7 @@ function ldap_backed($username, $passwd, $authcfg) {
 	} else
 		return false;
 
-	/* first check if there is even an LDAP server populated */ 
+	/* first check if there is even an LDAP server populated */
 	if(!$ldapserver) {
 		if ($ldapfallback) {
 			log_error(gettext("ERROR! ldap_backed() called with no LDAP authentication server defined.  Defaulting to local user database. Visit System -> User Manager."));
@@ -1086,7 +1089,7 @@ function ldap_backed($username, $passwd, $authcfg) {
 
 		return false;
 	}
-	
+
         /* Setup CA environment if needed. */
         ldap_setup_caenv($authcfg);
 
@@ -1121,10 +1124,10 @@ function ldap_backed($username, $passwd, $authcfg) {
 		log_error(sprintf(gettext("ERROR! Could not bind to server %s."), $ldapname));
 		return false;
 	}
-	
+
 	/* Get LDAP Authcontainers and split em up. */
 	$ldac_splits = explode(";", $ldapauthcont);
-	
+
 	/* setup the usercount so we think we havn't found anyone yet */
 	$usercount  = 0;
 
@@ -1172,7 +1175,7 @@ function ldap_backed($username, $passwd, $authcfg) {
 	if ($usercount != 1){
 		@ldap_unbind($ldap);
 		log_error(gettext("ERROR! Either LDAP search failed, or multiple users were found."));
-		return false;                         
+		return false;
 	}
 
 	/* Now lets bind as the user we found */
@@ -1192,6 +1195,76 @@ function ldap_backed($username, $passwd, $authcfg) {
 	@ldap_unbind($ldap);
 
 	return true;
+}
+
+function nexudusspaces_backed($username, $passwd, $accesstoken, $mac, $space, $token) {
+
+   Requests::register_autoloader();
+
+  if(!$space) {
+	return array(
+        'success' => false,
+        'message' => 'Captive Portal is not configured correctly. The Web address for your Nexudus Account is missing.'
+    );
+  }
+  if(!$token) {
+	return array(
+        'success' => false,
+        'message' => 'Captive Portal is not configured correctly. The Authentication token for your Nexudus Account is missing.'
+    );
+  }
+
+  $url = 'https://' . $space . '.spaces.nexudus.com/api/public/checkin';
+  $data = array(
+		'email' => $username,
+		'password' => $passwd,
+		'mac' => $mac,
+		'token' => $accesstoken
+		);
+  $headers = array(
+	'Content-Type' => 'application/json; charset=utf-8',
+	'Authorization' => $token
+	);
+
+  try {
+    $json = new Services_JSON();
+
+    $response = Requests::post($url, $headers, $json->encode($data));
+	header("Content-Type: text/html");
+
+    $body = $json->decode($response->body);
+
+	if($body->WasSuccessful) {
+		return array(
+		'success' => true,
+		'message' => $body->Message,
+		'session_timeout' => $body->Value->SessionTimeOut
+		);
+	} else if(!$body->WasSuccessful) {
+		return array(
+		'success' => false,
+		'message' => $body->Message
+		);
+	} else {
+		log_error('ERROR NEXUDUS SPACES: Invalid response from Nexudus Spaces Servers (' . $response->status_code . ', Error: ' . $response->body . ')');
+		return array(
+		'success' => false,
+		'message' => 'Nexudus Spaces servers returned an invalid response'
+		);
+	}
+	} catch(Exception $e) {
+		header("Content-Type: text/html");
+		log_error('ERROR NEXUDUS SPACES: Could not contact Nexudus Spaces Servers (' . $e . ')');
+		return array(
+		  'success' => false,
+		  'message' => 'Could not contact Nexudus Spaces Servers.'
+		);
+	}
+
+	return array(
+	  'success' => true,
+	  'message' => 'Welcome to the Space'
+	);
 }
 
 function radius_backed($username, $passwd, $authcfg, &$attributes = array()) {
@@ -1271,7 +1344,7 @@ function radius_get_groups($attributes) {
 
 function get_user_expiration_date($username) {
 	$user = getUserEntry($username);
-	if ($user['expires']) 
+	if ($user['expires'])
 		return $user['expires'];
 }
 
@@ -1366,6 +1439,10 @@ function authenticate_user($username, $password, $authcfg = NULL, &$attributes =
                 if (radius_backed($username, $password, $authcfg, $attributes))
                         $authenticated = true;
                 break;
+				case 'nexudusspaces':
+								if (nexudusspaces_backed($username, $password, $authcfg))
+												$authenticated = true;
+	        			break;
         default:
                 /* lookup user object by name */
                 if (local_backed($username, $password))
@@ -1442,7 +1519,7 @@ function session_auth() {
 			$_GET['logout'] = true;
 			$_SESSION['Logout'] = true;
 		} else
-			$_SESSION['last_access'] = time();	
+			$_SESSION['last_access'] = time();
 	} else if (intval($config['system']['webgui']['session_timeout']) == 0) {
 		/* only update if it wasn't ajax */
 		if (!isAjax())

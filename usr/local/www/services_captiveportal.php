@@ -198,6 +198,9 @@ if ($a_cp[$cpzone]) {
 		$pconfig['page']['errtext'] = $a_cp[$cpzone]['page']['errtext'];
 	if ($a_cp[$cpzone]['page']['logouttext'])
 		$pconfig['page']['logouttext'] = $a_cp[$cpzone]['page']['logouttext'];
+
+	$pconfig['nexudusspaces_space'] = $a_cp[$cpzone]['nexudusspaces_space'];
+	$pconfig['nexudusspaces_auth'] = $a_cp[$cpzone]['nexudusspaces_auth'];
 }
 
 if ($_POST) {
@@ -396,6 +399,9 @@ if ($_POST) {
 		$newcp['radmac_format'] = $_POST['radmac_format'] ? $_POST['radmac_format'] : false;
 		$newcp['reverseacct'] = $_POST['reverseacct'] ? true : false;
 		$newcp['radiusnasid'] = trim($_POST['radiusnasid']);
+		$newcp['nexudusspaces_space'] = $_POST['nexudusspaces_space'];
+		$newcp['nexudusspaces_auth'] = $_POST['nexudusspaces_auth'];
+
 		if (!is_array($newcp['page']))
 			$newcp['page'] = array();
 
@@ -439,6 +445,11 @@ function enable_change(enable_change) {
 	localauth_endis = !((!endis && document.iform.auth_method[1].checked) || enable_change);
 	radius_endis = !((!endis && document.iform.auth_method[2].checked) || enable_change);
 	https_endis = !((!endis && document.iform.httpslogin_enable.checked) || enable_change);
+
+	nexudus_endis = !((!endis && document.iform.auth_method[3].checked) || enable_change);
+	document.iform.nexudusspaces_space.disabled = nexudus_endis;
+	document.iform.nexudusspaces_auth.disabled = nexudus_endis;
+	document.iform.auth_method[3].disabled = endis;
 
 	document.iform.cinterface.disabled = endis;
 	//document.iform.maxproc.disabled = endis;
@@ -694,7 +705,20 @@ function enable_change(enable_change) {
 		</tr><tr>
 		  <td colspan="2"><input name="auth_method" type="radio" id="auth_method" value="radius" onclick="enable_change(false)" <?php if($pconfig['auth_method']=="radius") echo "checked=\"checked\""; ?> />
   <?=gettext("RADIUS Authentication"); ?></td>
-		</tr><tr>
+
+	</tr>
+
+		<tr>
+		  <td colspan="2"><input name="auth_method" type="radio" id="auth_method" value="nexudusspaces" onClick="enable_change(false)" <?php if($pconfig['auth_method']=="nexudusspaces") echo "checked"; ?>>
+				<?=gettext("Nexudus Spaces"); ?></td>
+		  </tr>
+		  <tr>
+			  <td>&nbsp;</td>
+			  <td>&nbsp;</td>
+		  </tr>
+
+		<tr>
+
 		  <td>&nbsp;</td>
 		  <td>&nbsp;</td>
                 </tr>
@@ -729,6 +753,27 @@ function enable_change(enable_change) {
                   </tr>
                 </table>
 		<table width="100%" border="0" cellpadding="6" cellspacing="0" summary="primary athentication">
+
+			<tr>
+							<td colspan="2" valign="top" class="listtopic">Nexudus Spaces Authentication</td>
+						</tr>
+						<tr>
+							<td class="vncell" valign="top"><?=gettext("Web Address"); ?></td>
+							<td class="vtable"><input name="nexudusspaces_space" type="text" class="formfld unknown" id="nexudusspaces_space" size="20" value="<?=htmlspecialchars($pconfig['nexudusspaces_space']);?>"><br>
+							<?=gettext("Type the first part (before the first dot, without '.spaces.nexudus.com') of the web address of your space in your Nexudus Spaces Account. Click <a target=\"_blank\" href=\"https://spaces.nexudus.com/Sys/Businesses\">here</a> to view the list of your spaces."); ?></td>
+						</tr>
+						<tr>
+							<td class="vncell" valign="top"><?=gettext("Authentication"); ?></td>
+							<td class="vtable"><input name="nexudusspaces_auth" type="text" class="formfld unknown" id="nexudusspaces_auth" size="20" value="<?=htmlspecialchars($pconfig['nexudusspaces_auth']);?>"><br>
+							<?=gettext("Get in touch with us to get your Authentication Token"); ?></td>
+						</tr>
+						<tr>
+						<td colspan="2" valign="top" class="optsect_t2">
+						<br/>
+						<br/>
+						</td>
+						</tr>
+
 			<tr>
 				<td colspan="2" valign="top" class="listtopic">Primary Authentication Source</td>
 			</tr>

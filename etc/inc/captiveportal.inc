@@ -35,10 +35,10 @@
 	via returned RADIUS attributes. This page has been modified to delete any
 	added rules which may have been created by other per-user code (index.php, etc).
 	These changes are (c) 2004 Keycom PLC.
-	
+
 	pfSense_BUILDER_BINARIES:	/sbin/ipfw	/sbin/route
 	pfSense_BUILDER_BINARIES:	/usr/local/sbin/lighttpd	/usr/local/bin/minicron /sbin/pfctl
-	pfSense_BUILDER_BINARIES:	/bin/hostname	/bin/cp 
+	pfSense_BUILDER_BINARIES:	/bin/hostname	/bin/cp
 	pfSense_MODULE: captiveportal
 */
 
@@ -48,95 +48,183 @@ require_once("functions.inc");
 require_once("filter.inc");
 require_once("radius.inc");
 require_once("voucher.inc");
+require_once('Requests/library/Requests.php');
+require_once('JSON.php');
 
 function get_default_captive_portal_html() {
 	global $config, $g, $cpzone;
 
 	$htmltext = <<<EOD
-<html> 
-<body> 
-<form method="post" action="\$PORTAL_ACTION\$"> 
-	<input name="redirurl" type="hidden" value="\$PORTAL_REDIRURL\$">
-	<input name="zone" type="hidden" value="\$PORTAL_ZONE\$">
-	<center>
-	<table cellpadding="6" cellspacing="0" width="550" height="380" style="border:1px solid #000000">
-	<tr height="10" bgcolor="#990000">
-		<td style="border-bottom:1px solid #000000">
-			<font color='white'>
-			<b>
-				{$g['product_name']} captive portal
-			</b>
-			</font>
-		</td>
-	</tr>
-	<tr>
-		<td>
-			<div id="mainlevel">
-			<center>
-			<table width="100%" border="0" cellpadding="5" cellspacing="0">
-			<tr>
-				<td>
-					<center>
-					<div id="mainarea">
-					<center>
-					<table width="100%" border="0" cellpadding="5" cellspacing="5">
-					<tr>
-						<td>
-							<div id="maindivarea">
-							<center>
-								<div id='statusbox'>
-									<font color='red' face='arial' size='+1'>
-									<b>
-										\$PORTAL_MESSAGE\$
-									</b>
-									</font>
+
+	<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Check-in Portal</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="//\$SPACE_ACCOUNT\$.spaces.nexudus.com/Content/themes/admin/social/assets/css/bootstrap.css" rel="stylesheet" id="bootstrap-css">
+    <link href="//\$SPACE_ACCOUNT\$.spaces.nexudus.com/Content/themes/admin/social/bootstrap-social.css" rel="stylesheet">
+    <link href="//\$SPACE_ACCOUNT\$.spaces.nexudus.com/Content/themes/admin/social/assets/css/font-awesome.css" rel="stylesheet">
+
+    <style type="text/css">
+
+        .btn-primary {
+
+            color: #fff;
+        }
+
+            .btn-primary:hover,
+            .btn-primary:focus {
+
+                color: #fff;
+            }
+
+        .form-signin {
+            max-width: 330px;
+            padding: 15px;
+            margin: 0 auto;
+        }
+
+            .form-signin .form-signin-heading, .form-signin .checkbox {
+                margin-bottom: 10px;
+            }
+
+            .form-signin .checkbox {
+                font-weight: normal;
+            }
+
+            .form-signin .form-control {
+                position: relative;
+                font-size: 16px;
+                height: auto;
+                padding: 10px;
+                -webkit-box-sizing: border-box;
+                -moz-box-sizing: border-box;
+                box-sizing: border-box;
+            }
+
+                .form-signin .form-control:focus {
+                    z-index: 2;
+                }
+
+            .form-signin input[type="text"], .form-signin input[type="email"] {
+                margin-bottom: -1px;
+                border-bottom-left-radius: 0;
+                border-bottom-right-radius: 0;
+            }
+
+            .form-signin input[type="password"] {
+                margin-bottom: 10px;
+                border-top-left-radius: 0;
+                border-top-right-radius: 0;
+            }
+
+        .account-wall {
+            margin-top: 20px;
+            padding: 40px 0px 20px 0px;
+            background-color: #f7f7f7;
+            -moz-box-shadow: 0px 2px 2px rgba(0, 0, 0, 0.3);
+            -webkit-box-shadow: 0px 2px 2px rgba(0, 0, 0, 0.3);
+            box-shadow: 0px 2px 2px rgba(0, 0, 0, 0.3);
+        }
+
+        .login-title {
+            color: #555;
+            font-size: 18px;
+            font-weight: 400;
+            display: block;
+        }
+
+        .profile-img {
+            width: 96px;
+            height: 96px;
+            margin: 0 auto 10px;
+            display: block;
+            -moz-border-radius: 50%;
+            -webkit-border-radius: 50%;
+            border-radius: 50%;
+        }
+
+        .need-help {
+            margin-top: 10px;
+        }
+
+        .new-account {
+            display: block;
+            margin-top: 10px;
+        }
+    </style>
+
+    <script src="//\$SPACE_ACCOUNT\$.spaces.nexudus.com/Content/themes/admin/js-min.js"></script>
+		<script type="text/javascript">
+				$(document).ready(function () {
+				if($('#message').text() != ""){
+					$('#login-block').removeBlockMessages().blockMessage($('#message').text(), { type: 'warning' });
+				}
+
+						$('body').applyTemplateSetup();
+						$('#login-form').submit(function (event) {
+							var submitBt = $(this).find('button[type=submit]');
+							submitBt.disableBt();
+							return true;
+						});
+				});
+		</script>
+
+</head>
+
+<body style="margin-top: 20px">
+    <div class="container" >
+        <div class="row">
+					<div style="display:none" id="message">\$PORTAL_MESSAGE\$</div>
+            <div class="col-sm-6 col-md-4 col-md-offset-4 col-sm-offset-3">
+                <div style="text-align: center">
+                    <img style="max-width: 300px; max-height: 100px;" src="//\$SPACE_ACCOUNT\$.spaces.nexudus.com/en/Business/GetLogo?h=80" />
+                </div>
+                <div class="account-wall">
+                    <form class="form-signin" id="login-form" method="post" action="\$PORTAL_ACTION\$">
+												<input name="zone" type="hidden" value="\$PORTAL_ZONE\$">
+												<input name="redirurl" type="hidden" value="\$PORTAL_REDIRURL\$">
+												<input name="accept" type="hidden" value="Continue">
+
+												<div id="email_login">
+	                        <input type="email" class="form-control" placeholder="Email" required autofocus name="auth_user" id="auth_user" autocomplete="off">
+	                        <input type="password" class="form-control" placeholder="Password" name="auth_pass" id="auth_pass" autocomplete="off">
+													<p>
+															<small>Or <a href="#" onclick="$('#email_login').hide(); $('#access_token_login').show(); return false;">enter an access token</a> if you have one.</small>
+													</p>
+												</div>
+												<div id="access_token_login" style="display: none">
+													<input style="margin-bottom: 10px" type="text" class="form-control" placeholder="Access Token" name="auth_token" id="auth_token" autocomplete="off">
+													<p>
+															<small>Or <a href="#" onclick="$('#email_login').show(); $('#access_token_login').hide(); return false;">enter your email and password</a> if you have one.</small>
+													</p>
+												</div>
+												<br />
+                        <button class="btn btn-lg btn-signup btn-block" type="submit">Connect</button>
+                        <hr/>
+
+                        <a class="btn btn-block btn-social btn-default" href="//\$SPACE_ACCOUNT\$.spaces.nexudus.com/en/signup">
+                            <i class="fa fa-sign-in"></i>
+                            Register
+                        </a>
+												<a class="btn btn-block btn-social btn-default" href="//\$SPACE_ACCOUNT\$.spaces.nexudus.com/en/store/products?onlyTimePasses=true">
+														<i class="fa fa-ticket"></i>
+														Buy a Day Pass
+												</a>
+
+                    </form>
+                </div>
+
+								<div id="login-block" class="block-content alert alert-danger" style="margin-top: 20px">
 								</div>
-								<br />
-								<div id='loginbox'>
-								<table>
-									<tr><td colspan="2"><center>Welcome to the {$g['product_name']} Captive Portal!</td></tr>
-									<tr><td>&nbsp;</td></tr>
-									<tr><td align="right">Username:</td><td><input name="auth_user" type="text" style="border: 1px dashed;"></td></tr>
-									<tr><td align="right">Password:</td><td><input name="auth_pass" type="password" style="border: 1px dashed;"></td></tr>
-									<tr><td>&nbsp;</td></tr>
 
-EOD;
-
-	if(isset($config['voucher'][$cpzone]['enable'])) {
-	$htmltext .= <<<EOD
-									<tr>
-										<td align="right">Enter Voucher Code: </td>
-										<td><input name="auth_voucher" type="text" style="border:1px dashed;" size="22"></td>
-									</tr>
-
-EOD;
-	}
-
-	$htmltext .= <<<EOD
-									<tr>
-										<td colspan="2"><center><input name="accept" type="submit" value="Continue"></center></td>
-									</tr>
-								</table>
-								</div>
-							</center>
-							</div>
-						</td>
-					</tr>
-					</table>
-					</center>
-					</div>
-					</center>
-				</td>
-			</tr>
-			</table>
-			</center>
-			</div>
-		</td>
-	</tr>
-	</table>
-	</center>
-</form>
-</body> 
+            </div>
+        </div>
+    </div>
+</body>
 </html>
 
 EOD;
@@ -183,7 +271,7 @@ function captiveportal_configure_zone($cpcfg) {
 	global $config, $g, $cpzone, $cpzoneid;
 
 	$captiveportallck = lock("captiveportal{$cpzone}", LOCK_EX);
-	
+
 	if (isset($cpcfg['enable'])) {
 
 		if (platform_booting()) {
@@ -201,7 +289,7 @@ function captiveportal_configure_zone($cpcfg) {
 					log_error("Execution time limit may be reached while reconfiguring zone = {$cpzone} due to many passthrough entries!");
 			}
 		}
-					
+
 		/* init ipfw rules */
 		captiveportal_init_rules(true);
 
@@ -238,6 +326,7 @@ function captiveportal_configure_zone($cpcfg) {
 				$htmltext = str_replace("\$PORTAL_REDIRURL\$", "{$cpcfg['preauthurl']}", $htmltext);
 				$htmltext = str_replace("#PORTAL_REDIRURL#", "{$cpcfg['preauthurl']}", $htmltext);
 			}
+			$htmltext = str_replace("\$SPACE_ACCOUNT\$", "{$cpcfg['nexudusspaces_space']}", $htmltext);
 			fwrite($fd, $htmltext);
 			fclose($fd);
 		}
@@ -266,6 +355,7 @@ function captiveportal_configure_zone($cpcfg) {
 				$errtext = str_replace("\$PORTAL_REDIRURL\$", "{$cpcfg['preauthurl']}", $errtext);
 				$errtext = str_replace("#PORTAL_REDIRURL#", "{$cpcfg['preauthurl']}", $errtext);
 			}
+			$errtext = str_replace("\$SPACE_ACCOUNT\$", "{$cpcfg['nexudusspaces_space']}", $errtext);
 			fwrite($fd, $errtext);
 			fclose($fd);
 		}
@@ -392,7 +482,7 @@ EOD;
 	/* XXX: Same as in rc.php_init_setup */
 	set_time_limit(900);
 	unlock($captiveportallck);
-	
+
 	return 0;
 }
 
@@ -409,7 +499,7 @@ function captiveportal_init_webgui() {
 
 function captiveportal_init_webgui_zonename($zone) {
 	global $config, $cpzone;
-	
+
 	if (isset($config['captiveportal'][$zone])) {
 		$cpzone = $zone;
 		captiveportal_init_webgui_zone($config['captiveportal'][$zone]);
@@ -581,11 +671,11 @@ EOD;
 				$cprules .= "add 65531 fwd 127.0.0.1,{$listenporthttps} tcp from any to any dst-port 443 in\n";
 			}
 	}
-	
+
 	$cprules .= <<<EOD
 
 # redirect non-authenticated clients to captive portal
-add 65532 fwd 127.0.0.1,{$listenporthttp} tcp from any to any dst-port 80 in 
+add 65532 fwd 127.0.0.1,{$listenporthttp} tcp from any to any dst-port 80 in
 # let the responses from the captive portal web server back out
 add 65533 pass tcp from any to any out
 # block everything else
@@ -602,7 +692,7 @@ EOD;
 
 	/* allowed ipfw rules to make allowed hostnames work */
 	$cprules .= captiveportal_allowedhostname_configure();
-	
+
 	/* load rules */
 	file_put_contents("{$g['tmp_path']}/ipfw_{$cpzone}.cp.rules", $cprules);
 	mwexec("/sbin/ipfw -x {$cpzoneid} -q {$g['tmp_path']}/ipfw_{$cpzone}.cp.rules", true);
@@ -613,7 +703,7 @@ EOD;
 		unlock($captiveportallck);
 }
 
-/* 
+/*
  * Remove clients that have been around for longer than the specified amount of time
  * db file structure:
  * timestamp,ipfw_rule_no,clientip,clientmac,username,sessionid,password,session_timeout,idle_timeout,session_terminate_time,interim_interval
@@ -650,7 +740,7 @@ function captiveportal_prune_old() {
 
 	$unsetindexes = array();
 	$voucher_needs_sync = false;
-	/* 
+	/*
 	 * Snapshot the time here to use for calculation to speed up the process.
 	 * If something is missed next run will catch it!
 	 */
@@ -686,7 +776,7 @@ function captiveportal_prune_old() {
 		if (!$timedout && $uidletimeout > 0) {
 			$lastact = captiveportal_get_last_activity($cpentry[2], $cpentry[3]);
 			/*	If the user has logged on but not sent any traffic they will never be logged out.
-			 *	We "fix" this by setting lastact to the login timestamp. 
+			 *	We "fix" this by setting lastact to the login timestamp.
 			 */
 			$lastact = $lastact ? $lastact : $cpentry[0];
 			if ($lastact && (($pruning_time - $lastact) >= $uidletimeout)) {
@@ -858,6 +948,31 @@ function captiveportal_prune_old_automac() {
 	}
 }
 
+//If nexudus spaces auth is enabled - notify server from the disconnection
+if($config['captiveportal'][$cpzone]['auth_method'] == "nexudusspaces")
+{
+	Requests::register_autoloader();
+	$space = $config['captiveportal'][$cpzone]['nexudusspaces_space'];
+	$token = $config['captiveportal'][$cpzone]['nexudusspaces_auth'];
+	$url = 'https://' . $space . '.spaces.nexudus.com/api/public/checkin';
+	$data = array(
+		'disconnect' => true,
+		'email' => $dbent[4],
+		'mac' => $dbent[3]
+	);
+	$headers = array(
+		'Content-Type' => 'application/json; charset=utf-8',
+		'Authorization' => $token
+	);
+
+	try {
+		$json = new Services_JSON();
+		$response = Requests::post($url, $headers, $json->encode($data));
+	} catch(Exception $e) {
+		captiveportal_logportalauth($dbent[4], $dbent[3], $dbent[2], "ERROR - Checking out on Nexudus Spaces " . $e);
+	}
+}
+
 /* remove a single client according to the DB entry */
 function captiveportal_disconnect($dbent, $radiusservers,$term_cause = 1,$stop_time = null) {
 	global $g, $config, $cpzone, $cpzoneid;
@@ -877,7 +992,7 @@ function captiveportal_disconnect($dbent, $radiusservers,$term_cause = 1,$stop_t
 			false,
 			$stop_time);
 	}
-	
+
 	if (is_ipaddr($dbent[2])) {
 		/* Delete client's ip entry from tables 1 and 2. */
 		$clientsn = (is_ipaddrv6($dbent[2])) ? 128 : 32;
@@ -888,7 +1003,7 @@ function captiveportal_disconnect($dbent, $radiusservers,$term_cause = 1,$stop_t
 		$_gb = @pfSense_kill_srcstates($dbent[2]);
 	}
 
-	/* 
+	/*
 	* These are the pipe numbers we use to control traffic shaping for each logged in user via captive portal
 	* We could get an error if the pipe doesn't exist but everything should still be fine
 	*/
@@ -987,7 +1102,7 @@ function captiveportal_passthrumac_configure_entry($macent, $pipeinrule = false)
 			$_gb = @pfSense_pipe_action("pipe {$pipeno} config bw {$bwUp}Kbit/s queue 100 buckets 16");
 		else
 			$rules .= "pipe {$pipeno} config bw {$bwUp}Kbit/s queue 100 buckets 16\n";
-			
+
 		$pipedown = $pipeno + 1;
 		if ($pipeinrule == true)
 			$_gb = @pfSense_pipe_action("pipe {$pipedown} config bw {$bwDown}Kbit/s queue 100 buckets 16");
@@ -1054,7 +1169,7 @@ function captiveportal_passthrumac_findbyname($username) {
 	return NULL;
 }
 
-/* 
+/*
  * table (3=IN)/(4=OUT) hold allowed ip's without bw limits
  */
 function captiveportal_allowedip_configure_entry($ipent, $ishostname = false) {
@@ -1066,7 +1181,7 @@ function captiveportal_allowedip_configure_entry($ipent, $ishostname = false) {
 	if ($ishostname === true) {
 		if (!platform_booting()) {
 			$ipaddress = gethostbyname($ipent['hostname']);
-			if (!is_ipaddr($ipaddress)) 
+			if (!is_ipaddr($ipaddress))
 				return;
 		} else
 			$ipaddress = "";
@@ -1140,7 +1255,7 @@ function captiveportal_allowedip_configure() {
 
 	$rules = "";
 	if (is_array($config['captiveportal'][$cpzone]['allowedip'])) {
-		foreach ($config['captiveportal'][$cpzone]['allowedip'] as $ipent) 
+		foreach ($config['captiveportal'][$cpzone]['allowedip'] as $ipent)
 			$rules .= captiveportal_allowedip_configure_entry($ipent);
 	}
 
@@ -1155,7 +1270,7 @@ function captiveportal_get_last_activity($ip, $mac = NULL, $table = 1) {
 	/* Reading only from one of the tables is enough of approximation. */
 	if (is_array($ipfwoutput)) {
 		/* Workaround for #46652 */
-		if ($ipfwoutput['packets'] > 0) { 
+		if ($ipfwoutput['packets'] > 0) {
 			return $ipfwoutput['timestamp'];
 		} else {
 			return 0;
@@ -1217,7 +1332,7 @@ function captiveportal_init_radius_servers() {
 			fwrite($fd,"\n" . $radiusip3 . "," . $radiusport3 . "," . $radiusacctport . "," . $radiuskey3 . ",second");
 		if (isset($radiusip4))
 			fwrite($fd,"\n" . $radiusip4 . "," . $radiusport4 . "," . $radiusacctport . "," . $radiuskey4 . ",second");
-		
+
 
 		fclose($fd);
 		unlock($cprdsrvlck);
@@ -1231,7 +1346,7 @@ function captiveportal_get_radius_servers() {
 	$cprdsrvlck = lock("captiveportalradius{$cpzone}");
 	if (file_exists("{$g['vardb_path']}/captiveportal_radius_{$cpzone}.db")) {
 		$radiusservers = array();
-		$cpradiusdb = file("{$g['vardb_path']}/captiveportal_radius_{$cpzone}.db", 
+		$cpradiusdb = file("{$g['vardb_path']}/captiveportal_radius_{$cpzone}.db",
 		FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
 		if ($cpradiusdb) {
 			foreach($cpradiusdb as $cpradiusentry) {
@@ -1453,7 +1568,7 @@ function captiveportal_write_db($queries) {
 
 function captiveportal_write_elements() {
 	global $g, $config, $cpzone;
-	
+
 	$cpcfg = $config['captiveportal'][$cpzone];
 
 	if (!is_dir($g['captiveportal_element_path']))
@@ -1476,7 +1591,7 @@ function captiveportal_write_elements() {
 		}
 		conf_mount_ro();
 	}
-	
+
 	return 0;
 }
 
@@ -1598,8 +1713,8 @@ function captiveportal_get_next_ipfw_ruleno($rulenos_start = 2, $rulenos_range_m
 				$rules[$ridx] = $cpzone;
 				break;
 			} else {
-				/* 
-				 * This allows our traffic shaping pipes to be the in pipe the same as ruleno 
+				/*
+				 * This allows our traffic shaping pipes to be the in pipe the same as ruleno
 				 * and the out pipe ruleno + 1.
 				 */
 				$ridx += 2;
@@ -1726,7 +1841,7 @@ function getNasIP()
 		else
 			$nasIp = get_interface_ip($config['captiveportal'][$cpzone]['radiussrcip_attribute']);
 	}
-		
+
 	if(!is_ipaddr($nasIp))
 		$nasIp = "0.0.0.0";
 
@@ -1760,9 +1875,9 @@ function portal_ip_from_client_ip($cliip) {
 	}
 
 	// doesn't match up to any particular interface
-	// so let's set the portal IP to what PHP says 
-	// the server IP issuing the request is. 
-	// allows same behavior as 1.2.x where IP isn't 
+	// so let's set the portal IP to what PHP says
+	// the server IP issuing the request is.
+	// allows same behavior as 1.2.x where IP isn't
 	// in the subnet of any CP interface (static routes, etc.)
 	// rather than forcing to DNS hostname resolution
 	$ip = $_SERVER['SERVER_ADDR'];
@@ -1780,7 +1895,7 @@ function portal_hostname_from_client_ip($cliip) {
 	if (isset($cpcfg['httpslogin'])) {
 		$listenporthttps = $cpcfg['listenporthttps'] ? $cpcfg['listenporthttps'] : ($cpcfg['zoneid'] + 8001);
 		$ourhostname = $cpcfg['httpsname'];
-		
+
 		if ($listenporthttps != 443)
 			$ourhostname .= ":" . $listenporthttps;
 	} else {
@@ -1790,11 +1905,11 @@ function portal_hostname_from_client_ip($cliip) {
 			$ourhostname = "{$config['system']['hostname']}.{$config['system']['domain']}";
 		else
 			$ourhostname = (is_ipaddrv6($ifip)) ? "[{$ifip}]" : "{$ifip}";
-		
+
 		if ($listenporthttp != 80)
 			$ourhostname .= ":" . $listenporthttp;
 	}
-	
+
 	return $ourhostname;
 }
 
@@ -1832,7 +1947,7 @@ function portal_reply_page($redirurl, $type = null, $message = null, $clientmac 
 	$htmltext = str_replace("\$CLIENT_MAC\$", htmlspecialchars($clientmac), $htmltext);
 	$htmltext = str_replace("\$CLIENT_IP\$", htmlspecialchars($clientip), $htmltext);
 
-	// Special handling case for captive portal master page so that it can be ran 
+	// Special handling case for captive portal master page so that it can be ran
 	// through the PHP interpreter using the include method above.  We convert the
 	// $VARIABLE$ case to #VARIABLE# in /etc/inc/captiveportal.inc before writing out.
 	$htmltext = str_replace("#PORTAL_ZONE#", htmlspecialchars($cpzone), $htmltext);
@@ -1972,10 +2087,10 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 			break;
 		}
 		elseif (($attributes['voucher']) && ($username != 'unauthenticated') && ($cpentry[4] == $username)) {
-			// user logged in with an active voucher. Check for how long and calculate 
+			// user logged in with an active voucher. Check for how long and calculate
 			// how much time we can give him (voucher credit - used time)
 			$remaining_time = $cpentry[0] + $cpentry[7] - $allow_time;
-			if ($remaining_time < 0)    // just in case. 
+			if ($remaining_time < 0)    // just in case.
 				$remaining_time = 0;
 
 			/* This user was already logged in so we disconnect the old one */
@@ -2074,7 +2189,7 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 
 			if ($attributes['voucher'])
 				$attributes['session_timeout'] = $remaining_time;
-			
+
 			/* handle empty attributes */
 			$session_timeout = (!empty($attributes['session_timeout'])) ? $attributes['session_timeout'] : 'NULL';
 			$idle_timeout = (!empty($attributes['idle_timeout'])) ? $attributes['idle_timeout'] : 'NULL';
